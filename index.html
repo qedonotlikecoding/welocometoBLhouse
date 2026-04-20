@@ -28,43 +28,9 @@
         .death-msg { color: #ff4d4d; font-size: 2.2rem; font-weight: bold; margin-bottom: 10px; animation: shake 0.3s infinite; }
         @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-2px, -1px); } 100% { transform: translate(1px, 1px); } }
         .restart-btn { background: #800; border: none; color: white; width: 100%; margin-top: 20px; }
-        /* 블루스크린 효과 */
-        #bsod-screen {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: #0000aa;
-            color: white;
-            font-family: 'Courier New', Courier, monospace;
-            padding: 50px;
-            box-sizing: border-box;
-            text-align: left;
-            z-index: 9999;
-            font-size: 1.2rem;
-            line-height: 1.5;
-        }
-        .glitch-text { color: #ff0000; font-weight: bold; }
-
     </style>
 </head>
 <body>
-    <div id="bsod-screen">
-        <p>*** STOP: 0x000000LOV (Memory_Management_Error)</p>
-        <p>A problem has been detected and windows has been shut down to prevent damage to your heart.</p>
-        <p>TECHNICAL_INFORMATION:</p>
-        <p id="error-logs">
-            // Checking Memory Integrity...<br>
-            while(1) { malloc(sizeof(YOU)); }<br>
-            Error: Memory Leak detected at address 0xLOVE<br>
-            Reason: <span class="glitch-text">집착 수치 폭발 (Love Overflow)</span>
-        </p>
-        <p>Collecting data for crash dump... 100% complete.</p>
-        <p style="margin-top: 50px;">잠시 후 시스템이 당신의 집착으로 복구됩니다...</p>
-    </div>
-
 <div id="game-container">
     <div id="start-screen">
         <h1 id="main-title" style="color: #ff4d4d; cursor: pointer;" ondblclick="showCreatorMessage()">
@@ -194,7 +160,7 @@
         }
 
         // [이스터에그 1] 이름이 '청은'일 때 (설계자 모드)
-        if (userName === "청은") {
+        if (userName === "청은" || userName === "리청은") {
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
             triggerSpecialWin("당신은 이 저택의 설계자군요. 광공이 당신 앞에 무릎을 꿇고 열쇠를 바칩니다.");
@@ -324,10 +290,6 @@
     }
 
     function updateUI() {
-        // Level 5(인덱스 4)에 진입할 때 블루스크린 실행
-        if (currentLevel === 4) {
-            triggerMemoryLeak();
-        }
 
         const levelData = gameData[currentLevel] || gameData[gameData.length-1];
         document.getElementById('level-display').innerText = "Level " + (currentLevel + 1);
@@ -336,21 +298,6 @@
         document.getElementById('choiceA').innerText = levelData.choiceA;
         document.getElementById('choiceB').innerText = levelData.choiceB;
     }
-
-    // 블루스크린 실행 함수
-    function triggerMemoryLeak() {
-        const bsod = document.getElementById('bsod-screen');
-        bsod.style.display = 'block';
-
-        // 4초 뒤에 블루스크린이 사라지면서 광공의 멘트와 함께 복구
-        setTimeout(() => {
-            bsod.style.display = 'none';
-            alert("집착광공: 우리 사랑이 너무 넘쳐서 시스템이 견디질 못하네. 메모리 해제(free)는 꿈도 꾸지 마.");
-            // 타이머가 멈춰있었을 테니 다시 세팅하거나 리셋해줍니다.
-            resetTimer(); 
-        }, 4000);
-    }
-
 
     function triggerDeath(data) {
         document.body.style.background = "#400";
