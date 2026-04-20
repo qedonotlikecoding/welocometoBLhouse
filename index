@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>집착광공 시뮬레이션: 극한 모드</title>
+    <style>
+        body { background-color: #0d0d0d; color: #ffffff; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+        #game-container { width: 90%; max-width: 500px; text-align: center; padding: 30px; border: 2px solid #333; background: rgba(20, 20, 20, 0.95); border-radius: 15px; position: relative; }
+        h1 { font-size: 1.5rem; color: #ff4d4d; margin-bottom: 20px; }
+        
+        /* 타이머 바 스타일 */
+        #timer-container { width: 100%; height: 5px; background: #222; margin-bottom: 20px; border-radius: 5px; overflow: hidden; }
+        #timer-bar { width: 100%; height: 100%; background: #ff4d4d; transition: width 0.1s linear; }
+
+        input { padding: 12px; width: 80%; margin-bottom: 20px; background: #111; border: 1px solid #444; color: white; text-align: center; }
+        #scenario { font-size: 1.2rem; line-height: 1.6; margin-bottom: 30px; min-height: 80px; word-break: keep-all; }
+        .btn-container { display: flex; flex-direction: column; gap: 10px; }
+        button { background: #222; color: #eee; border: 1px solid #444; padding: 15px; font-size: 1rem; cursor: pointer; border-radius: 8px; }
+        button:hover { background: #333; border-color: #ff4d4d; }
+
+        /* 심리 보고서 카드 스타일 */
+        .report-card { background: white; color: black; padding: 25px; border-radius: 10px; text-align: left; margin-top: 20px; position: relative; border-top: 8px solid #ff4d4d; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .report-title { font-size: 1.2rem; font-weight: bold; color: #ff4d4d; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+        .report-line { margin-bottom: 8px; font-size: 0.95rem; }
+        .stamp { position: absolute; right: 20px; bottom: 20px; border: 3px solid red; color: red; padding: 5px; transform: rotate(-15deg); font-weight: bold; opacity: 0.7; }
+
+        .death-msg { color: #ff4d4d; font-size: 2.2rem; font-weight: bold; margin-bottom: 10px; animation: shake 0.3s infinite; }
+        @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-2px, -1px); } 100% { transform: translate(1px, 1px); } }
+        .restart-btn { background: #800; border: none; color: white; width: 100%; margin-top: 20px; }
+        /* 블루스크린 효과 */
+        #bsod-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #0000aa;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 50px;
+            box-sizing: border-box;
+            text-align: left;
+            z-index: 9999;
+            font-size: 1.2rem;
+            line-height: 1.5;
+        }
+        .glitch-text { color: #ff0000; font-weight: bold; }
+
+    </style>
+</head>
+<body>
+    <div id="bsod-screen">
+        <p>*** STOP: 0x000000LOV (Memory_Management_Error)</p>
+        <p>A problem has been detected and windows has been shut down to prevent damage to your heart.</p>
+        <p>TECHNICAL_INFORMATION:</p>
+        <p id="error-logs">
+            // Checking Memory Integrity...<br>
+            while(1) { malloc(sizeof(YOU)); }<br>
+            Error: Memory Leak detected at address 0xLOVE<br>
+            Reason: <span class="glitch-text">집착 수치 폭발 (Love Overflow)</span>
+        </p>
+        <p>Collecting data for crash dump... 100% complete.</p>
+        <p style="margin-top: 50px;">잠시 후 시스템이 당신의 집착으로 복구됩니다...</p>
+    </div>
+
+<div id="game-container">
+    <div id="start-screen">
+        <h1 id="main-title" style="color: #ff4d4d; cursor: pointer;" ondblclick="showCreatorMessage()">
+            집착광공의 저택
+        </h1>
+        <p style="color: #888;">입장 후에는 5초 안에 대답해야 합니다.</p>
+        <input type="text" id="user-name-input" placeholder="이름을 입력하세요" maxlength="8">
+        <button style="width: 85%; background: #444;" onclick="startGame()">입장하기</button>
+    </div>
+
+    
+
+    <div id="game-screen" style="display: none;">
+        <div id="timer-container"><div id="timer-bar"></div></div>
+        <h1 id="level-display" style="font-size: 0.9rem; color: #555;">Level 1</h1>
+        <p id="scenario"></p>
+        <div class="btn-container">
+            <button onclick="handleChoice(true)" id="choiceA"></button>
+            <button onclick="handleChoice(false)" id="choiceB"></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentLevel = 0;
+    let userName = "";
+    let timeLeft = 50; // 5초 (0.1초 단위)
+    let timerInterval;
+    
+    // 받침 유무에 따라 적절한 조사를 붙여주는 함수
+    function addJosa(word, type) {
+    const lastChar = word.charCodeAt(word.length - 1);
+    const hasBatchim = (lastChar - 0xac00) % 28 > 0;
+    
+    if (type === '은는') return hasBatchim ? `${word}은` : `${word}는`;
+    if (type === '이가') return hasBatchim ? `${word}이` : `${word}가`;
+    return word;
+}
+
+
+    function getJosa(name) {
+        const lastChar = name.charCodeAt(name.length - 1);
+        const hasBatchim = (lastChar - 0xac00) % 28 > 0;
+        return hasBatchim ? "아" : "야";
+    }
+
+    const gameData = [
+        {
+            scenario: "현관문 앞을 막아선 그가 낮게 읊조린다. \"{name}, 지금 어디 가시나?\"",
+            choiceA: "\"당신 생각나서 꽃 사러요.\"",
+            choiceB: "\"편의점에 껌 사러요.\"",
+            deathReason: "\"내 입술로는 부족한가 보군.\" 그대로 문이 용접되었다.",
+            report: { type: "생존 지능 결핍자", strength: "솔직함", weakness: "눈치" }
+        },
+        {
+            scenario: "\"{name}, 내가 직접 만든 요리다. 남기지 말고 다 먹어.\"",
+            choiceA: "눈물을 흘리며 끝까지 다 먹는다.",
+            choiceB: "\"저 다이어트 중이라서...\"",
+            deathReason: "\"살이 빠지면 도망치기 쉬워지겠지.\" 강제 급식이 시작되었다.",
+            report: { type: "다이어트 빌런", strength: "자기관리", weakness: "분위기 파악" }
+        },
+        {
+            scenario: "한밤중 몰래 발목 방울을 풀려는데 뒤에서 들리는 목소리. \"{nameCall}, 뭐 하는 거지?\"",
+            choiceA: "\"잠결에 다리가 너무 가려워서요...\"",
+            choiceB: "\"이거 24K 아니죠? 알레르기 있나 봐요.\"",
+            deathReason: "\"질이 마음에 안 드나? 그럼 다이아몬드로 박아주지.\"",
+            report: { type: "재질 파악 전문가", strength: "금 함량 분석", weakness: "공포 실종" }
+        },
+        {
+            scenario: "\"{nameCall}, 왜 나를 사랑하지 않지?\"",
+            choiceA: "\"당신이 너무 눈부셔서 볼 수가 없어요.\"",
+            choiceB: "\"그쪽 MBTI가 'T'라서 공감 능력이 없네요.\"",
+            deathReason: "\"T? 그래, 난 이제부터 네 인생의 'T'erminator다.\"",
+            report: { type: "MBTI 과몰입러", strength: "성격 분석", weakness: "살의 분석 실패" }
+        },
+        {
+            scenario: "그가 자신의 자서전을 던지며 명령한다. \"{name}, 읽어라.\"",
+            choiceA: "자서전을 통째로 암기하며 찬양한다.",
+            choiceB: "자서전 얼굴에 낙서를 했다.",
+            deathReason: "\"내 얼굴이 그렇게 보고 싶었나?\" 방안이 그의 사진으로 도배되었다.",
+            report: { type: "낙서 아티스트", strength: "미적 감각", weakness: "생존 본능" }
+        },
+        {
+            scenario: "그가 목덜미에 얼굴을 묻으며 속삭인다. \"{name}, 좋은 냄새가 나는군.\"",
+            choiceA: "\"당신이 준 향수 덕분이에요.\"",
+            choiceB: "\"3일 동안 안 씻어서 그래요.\"",
+            deathReason: "\"씻겨주길 바라는 건가? 평생 욕실에서 못 나올 줄 알아.\"",
+            report: { type: "자연인", strength: "솔직함", weakness: "TPO 파악" }
+        },
+        {
+            scenario: "\"{nameCall}, 나비가 예쁜가, 내가 예쁜가?\"",
+            choiceA: "\"나비는 당신 손바닥 안의 장난감일 뿐이죠.\"",
+            choiceB: "\"나비는 날 수 있잖아요. 그쪽은 못 날죠?\"",
+            deathReason: "\"날아가는 건 이 세상에서 나비 하나로 족해.\"",
+            report: { type: "팩트 폭격기", strength: "논리적 팩폭", weakness: "자유 집착" }
+        },
+        {
+            scenario: "그가 노예 계약서를 내밀었다. \"{name}, 지장 찍어.\"",
+            choiceA: "묻지도 따지지도 않고 찍는다.",
+            choiceB: "\"근로기준법에 따르면 이건 좀...\"",
+            deathReason: "\"이 집안에 법은 나 하나다.\"",
+            report: { type: "K-직장인", strength: "법적 지식", weakness: "권력관계 파악" }
+        },
+        {
+            scenario: "옷장에 숨어 있는데 그가 문을 벌컥 연다. \"찾았다, {nameCall}.\"",
+            choiceA: "스스로 기어나와 무릎을 꿇는다.",
+            choiceB: "긴장해서 방귀를 뀌어버렸다.",
+            deathReason: "\"신호인가? 나를 부르는?\"",
+            report: { type: "생리현상 배신자", strength: "활발한 장 운동", weakness: "괄약근 통제" }
+        },
+        {
+            scenario: "마지막 질문이다. \"{nameCall}, 나 없이 살 수 있나?\"",
+            choiceA: "\"당신 없는 세상은 산소가 없는 것과 같아요.\"",
+            choiceB: "\"네, 아주 잘요.\"",
+            deathReason: "\"그럼 죽어서도 내 곁에 있어라.\"",
+            report: { type: "자립심 강한 영혼", strength: "자존감", weakness: "눈치 (재출력)" }
+        }
+    ];
+
+    function startGame() {
+        const input = document.getElementById('user-name-input');
+        userName = input.value.trim();
+        
+        if (userName === "") {
+            alert("이름을 입력하지 않으면 광공이 화를 냅니다.");
+            return;
+        }
+
+        // [이스터에그 1] 이름이 '청은'일 때 (설계자 모드)
+        if (userName === "청은") {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            triggerSpecialWin("당신은 이 저택의 설계자군요. 광공이 당신 앞에 무릎을 꿇고 열쇠를 바칩니다.");
+            return;
+        }
+
+        if (userName === "최립우" || userName === "립우") {
+            alert("혀엉... 나 푸딩이야... 못 알아보겠어?🐶🤍🐰");
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            triggerLiyuWin(); // 전용 승리 함수 호출
+            return;
+        }
+        
+
+
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
+        startLevel();
+    }
+    
+    // [이스터에그] 제목 더블 클릭 시 창조주 메시지 출력
+    function showCreatorMessage() {
+        alert("사실 진짜 설계자는 나지🤫\n2026.4.20 in BNU 宿舍");
+    }
+
+    
+    // 4번 이스터에그: 배경 광클 시 시간 연장 및 멘트
+    let backgroundClickCount = 0;
+
+    // 게임 컨테이너(배경) 클릭 이벤트 리스너
+    document.getElementById('game-container').addEventListener('click', function(e) {
+        // 버튼이 아닌 배경을 클릭했을 때만 카운트 (이벤트 버블링 방지)
+        if (e.target.tagName !== 'BUTTON' && document.getElementById('game-screen').style.display === 'block') {
+            backgroundClickCount++;
+
+            if (backgroundClickCount === 3) {
+                // 광공의 개입 멘트
+                alert(userName + getJosa(userName) + "... 왜 그렇게 불안해해? 내 손이라도 잡고 싶은 거야?");
+                
+                // 보너스: 시간 연장 (현재 남은 시간에 2초(20) 추가, 최대 5초(50) 제한)
+                timeLeft = Math.min(timeLeft + 20, 50);
+                
+                // 카운트 초기화 (한 레벨에서 여러 번 가능하게 하려면)
+                backgroundClickCount = 0;
+            }
+        }
+    });
+
+
+    // 특별 승리 화면을 위한 함수 (이것도 스크립트 안에 추가해 주세요)
+    function triggerSpecialWin(message) {
+        clearInterval(timerInterval);
+        document.body.style.background = "#002244"; // 특별한 푸른색 배경
+        const container = document.getElementById('game-screen');
+        container.innerHTML = `
+            <h1 style="color: gold;">MASTER SETTLED</h1>
+            <p style="margin-bottom:20px; color: #fff;">${message}</p>
+            <div class="report-card">
+                <div class="report-title">👑 설계자 인증 보고서</div>
+                <div class="report-line"><b>성향:</b> 세계관 창조주</div>
+                <div class="report-line"><b>분석:</b> 모든 광공의 서사를 지배하는 자.</div>
+                <div class="stamp" style="border-color:gold; color:gold;">Access Granted</div>
+            </div>
+            <button class="restart-btn" style="background:#444;" onclick="location.reload()">처음으로</button>
+        `;
+    }
+    function triggerLiyuWin() {
+        clearInterval(timerInterval);
+        // 배경을 러블리한 핑크로 변경
+        document.body.style.background = "#ffc0cb"; 
+        const container = document.getElementById('game-screen');
+        
+        container.innerHTML = `
+            <h1 style="color: #ff1493; text-shadow: 1px 1px 2px #fff;">🐰 PUDDING WIN 🐰</h1>
+            <p style="margin-bottom:20px; color: #d02090; font-weight: bold;">
+                집착광공 정상현을 이기는 최강 토끼,<br>최립우가 저택에 등장했습니다!
+            </p>
+            <div class="report-card" style="border-top: 8px solid #ff69b4; background: rgba(255, 255, 255, 0.9);">
+                <div class="report-title" style="color: #ff69b4;">💖 전설의 푸딩 리포트</div>
+                <div class="report-line"><b>피험자:</b> 최립우(FREDRICK CHOI)</div>
+                <div class="report-line"><b>특수 능력:</b> "형아" 한 마디로 광공 무력화</div>
+                <div class="report-line"><b>분석:</b> 정상현의 모든 집착을 '귀여움'으로 정화함.</div>
+                <div class="stamp" style="border-color: #ff69b4; color: #ff69b4; opacity: 1;">입덕 완료</div>
+            </div>
+            <button class="restart-btn" style="background:#ff69b4;" onclick="location.reload()">다시 저택으로</button>
+        `;
+    }
+
+
+    function startLevel() {
+        updateUI();
+        resetTimer();
+    }
+
+    function resetTimer() {
+        clearInterval(timerInterval);
+        timeLeft = 50;
+        const bar = document.getElementById('timer-bar');
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            bar.style.width = (timeLeft * 2) + "%";
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                triggerDeath({ deathReason: "대답이 늦었군. 딴생각했나?", report: { type: "느림보", strength: "여유", weakness: "반응 속도" } });
+            }
+        }, 100);
+    }
+
+    function handleChoice(isSafe) {
+        clearInterval(timerInterval);
+        
+        // 10% 확률로 랜덤 사망 (불합리함 추가)
+        const luck = Math.random();
+        if (isSafe && luck < 0.3) {
+            triggerDeath({ deathReason: "오늘 네 숨소리가 마음에 안 들어.", report: { type: "운 없는 영혼", strength: "정답 고르기", weakness: "운" } });
+            return;
+        }
+
+        if (!isSafe) {
+            triggerDeath(gameData[currentLevel] || gameData[gameData.length-1]);
+        } else {
+            currentLevel++;
+            if (currentLevel >= gameData.length) triggerWin();
+            else startLevel();
+        }
+    }
+
+    function updateUI() {
+        // Level 5(인덱스 4)에 진입할 때 블루스크린 실행
+        if (currentLevel === 4) {
+            triggerMemoryLeak();
+        }
+
+        const levelData = gameData[currentLevel] || gameData[gameData.length-1];
+        document.getElementById('level-display').innerText = "Level " + (currentLevel + 1);
+        const nameCall = userName + getJosa(userName);
+        document.getElementById('scenario').innerText = levelData.scenario.replace(/{name}/g, userName).replace(/{nameCall}/g, nameCall);
+        document.getElementById('choiceA').innerText = levelData.choiceA;
+        document.getElementById('choiceB').innerText = levelData.choiceB;
+    }
+
+    // 블루스크린 실행 함수
+    function triggerMemoryLeak() {
+        const bsod = document.getElementById('bsod-screen');
+        bsod.style.display = 'block';
+
+        // 4초 뒤에 블루스크린이 사라지면서 광공의 멘트와 함께 복구
+        setTimeout(() => {
+            bsod.style.display = 'none';
+            alert("정상현: 우리 사랑이 너무 넘쳐서 시스템이 견디질 못하네. 메모리 해제(free)는 꿈도 꾸지 마.");
+            // 타이머가 멈춰있었을 테니 다시 세팅하거나 리셋해줍니다.
+            resetTimer(); 
+        }, 4000);
+    }
+
+
+    function triggerDeath(data) {
+        document.body.style.background = "#400";
+        const container = document.getElementById('game-screen');
+
+        // 1. 여기서 조사를 붙인 변수를 생성합니다.
+        // data.report가 없거나 strength/weakness가 없을 경우를 대비해 기본값 처리를 했습니다.
+        const strengthWord = (data.report && data.report.strength) ? data.report.strength : "운";
+        const weaknessWord = (data.report && data.report.weakness) ? data.report.weakness : "눈치";
+
+        const strengthWithJosa = addJosa(strengthWord, '은는');
+        const weaknessWithJosa = addJosa(weaknessWord, '이가');
+
+        // 2. 아래의 백틱(`)으로 감싸진 전체 내용을 container.innerHTML에 할당합니다.
+        container.innerHTML = `
+            <div class="death-msg">YOU DIED</div>
+            <p style="margin-bottom:15px; color:#ffcccc;">${userName}... ${data.deathReason}</p>
+            <div class="report-card">
+                <div class="report-title">📝 사후 심리 분석 보고서</div>
+                <div class="report-line"><b>피험자:</b> ${userName}</div>
+                <div class="report-line"><b>생존 단계:</b> Level ${currentLevel + 1}</div>
+                <div class="report-line"><b>유형:</b> ${(data.report && data.report.type) ? data.report.type : "미확인"}</div>
+                <div class="report-line"><b>분석:</b> ${strengthWithJosa} 뛰어나나 ${weaknessWithJosa} 치명적임.</div>
+                <div class="stamp">광공 인증</div>
+            </div>
+            <button class="restart-btn" onclick="location.reload()">새로운 생으로 환생</button>
+        `;
+    }
+
+
+    function triggerWin() {
+        document.body.style.background = "#004d00";
+        document.getElementById('game-screen').innerHTML = `
+            <h1 style="color: gold;">SURVIVED</h1>
+            <div class="report-card">
+                <div class="report-title">🏆 생존 보고서</div>
+                <div class="report-line"><b>이름:</b> ${userName}</div>
+                <div class="report-line"><b>최종 결과:</b> 광공의 저택에서 살아남음</div>
+                <div class="report-line"><b>평가:</b> 완벽한 가스라이팅 방어 기제를 가짐.</div>
+                <div class="stamp" style="border-color:green; color:green;">생존 확인</div>
+            </div>
+            <button class="restart-btn" onclick="location.reload()">한 번 더 도전</button>
+        `;
+    }
+</script>
+
+</body>
+</html>
